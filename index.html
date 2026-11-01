@@ -486,7 +486,7 @@ document.addEventListener('change',e=>{const i=e.target;
  else if(i.dataset.e){const it=S.tasks.find(x=>x.id===i.dataset.i)||S.projects.find(x=>x.id===i.dataset.i);if(it){it[i.dataset.e]=i.value.trim()||null;save();render()}}
  else if(['sF','sS','sL','sE'].includes(i.id)){const k={sF:'focus',sS:'short',sL:'long',sE:'every'}[i.id];S.set[k]=Math.max(1,Math.min(180,+i.value||S.set[k]));
   if(!S.a.sess&&!S.a.run)S.a.target=S.set[S.a.mode]*60;save();render()}});
-var FB=null,fbUser=null,unsub=null,syncT=null,gSel=null,gRange='week',gDocs=[];
+var FB=null,fbUser=null,unsub=null,syncT=null,gSel=null,gLis='',gRange='week',gDocs=[];
 const CFG={apiKey:"AIzaSyC5X0Afzi7MuOpxZWQrVlDJzpECFP4YMLc",authDomain:"amms-50c18.firebaseapp.com",projectId:"amms-50c18",storageBucket:"amms-50c18.firebasestorage.app",messagingSenderId:"828119885315",appId:"1:828119885315:web:ef001ed070cae157e2d036"};
 const ymd=t=>{const d=new Date(t);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const myName=()=>S.sync.name||((fbUser&&fbUser.email)||'me').split('@')[0];
@@ -505,7 +505,7 @@ async function pushSync(){if(!S.sync||!S.sync.codes.length)return;try{if(!FB)awa
  for(const g of S.sync.codes)for(const k in D){const sig=D[k].secs+'|'+D[k].pom+'|'+name,key=g.code+'|'+k;if(S.sync.sent[key]===sig)continue;
   try{await FB.fs.setDoc(FB.fs.doc(FB.db,'groups',g.code,'days',fbUser.uid+'_'+k),{uid:fbUser.uid,name,day:k,secs:D[k].secs,pom:D[k].pom});S.sync.sent[key]=sig;ch=1}catch(x){}}
  if(ch)save()}
-async function listen(){if(unsub){unsub();unsub=null}const g=S.sync.codes.find(x=>x.code===gSel);if(!g||!fbUser||!FB)return;const f=FB.fs;liveListen(g.code);
+async function listen(){const g=S.sync.codes.find(x=>x.code===gSel);if(!g||!fbUser||!FB)return;if(unsub&&gLis===g.code)return;if(unsub){unsub();unsub=null}gLis=g.code;const f=FB.fs;liveListen(g.code);
  unsub=f.onSnapshot(f.query(f.collection(FB.db,'groups',g.code,'days'),f.where('day','>=',ymd(Date.now()-35*864e5))),snap=>{gDocs=snap.docs.map(d=>d.data());board()},()=>gm('Couldn’t load this group. Check your internet connection.'))}
 function board(){const b=$('#gBoard');if(!b)return;const tN=Date.now(),L=gLive.filter(x=>x.live&&tN-x.upd<3e5),lv=$('#gLive');if(lv)lv.innerHTML=L.length?'<b>Focusing now:</b>'+L.map(x=>`<span class="lv"><i class="dot" style="background:#22c55e;margin-right:6px"></i>${esc(x.name)}&nbsp;<small>${fmt((tN-x.since)/1000)}</small></span>`).join(''):'<span class="empty">Nobody is focusing right now.</span>';const nt=$('#gNote');if(nt){const w=weekStart(Date.now());w.setDate(w.getDate()+7);const ms=w-Date.now(),d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4);nt.textContent=gRange==='week'?`The week resets every Sunday night at midnight (Monday 12:00 AM). Next reset in ${d}d ${h}h ${m}m.`:gRange==='last'?'Final standings of the previous week.':''}const n=Date.now(),nd=new Date(n),ws=weekStart(n),lw=(d=>(d.setDate(d.getDate()-7),d))(new Date(ws)),from=gRange==='day'?ymd(n):gRange==='week'?ymd(ws):gRange==='last'?ymd(lw):ymd(new Date(nd.getFullYear(),nd.getMonth(),1)),to=gRange==='last'?ymd(ws):'9999',A={};const td=ymd(n),W=ymd(ws),me=fbUser?fbUser.uid:'',sm=f=>gDocs.filter(f).reduce((x,d)=>x+d.secs,0),gt=$('#gTot');if(gt)gt.innerHTML=[['Group today',sm(d=>d.day===td)],['Group this week',sm(d=>d.day>=W)],['You today',sm(d=>d.day===td&&d.uid===me)],['You this week',sm(d=>d.day>=W&&d.uid===me)]].map(k=>`<div class="kpi"><b>${fmt(k[1])}</b><span>${k[0]}</span></div>`).join('');
  gDocs.filter(d=>d.day>=from&&d.day<to).forEach(d=>{const a=A[d.uid]||(A[d.uid]={secs:0,pom:0});a.name=d.name;a.secs+=d.secs;a.pom+=d.pom;if(d.day===ymd(n))a.t=(a.t||0)+d.secs});
@@ -527,7 +527,7 @@ ${gSel?`<div class="card"><h2>Leaderboard</h2><div class="note" style="text-alig
  $('#gOut').onclick=async()=>{try{await FB.au.signOut(FB.auth)}catch(e){}};$('#gMk').onclick=mkGroup;$('#gJn').onclick=joinGroup;
  v.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{gSel=b.dataset.g;renderG();listen()});
  v.querySelectorAll('[data-gr]').forEach(b=>b.onclick=()=>{gRange=b.dataset.gr;renderG()});board()}
-function enterG(){renderG();if(!FB)fbLoad().catch(()=>gm('No internet connection, or Firebase couldn’t load.'))}
+function enterG(){if(!gSel&&S.sync.codes.length)gSel=S.sync.codes[0].code;renderG();if(!FB)fbLoad().catch(()=>gm('No internet connection, or Firebase couldn’t load.'));else listen()}
 var pieMode='proj',PAL=['#7c3aed','#ec4899','#06b6d4','#f59e0b','#22c55e','#ef4444','#3b82f6','#a855f7','#14b8a6','#f97316'];
 function donut(rows,label,F){F=F||fmt;const tot=rows.reduce((x,r)=>x+r.v,0);if(!tot)return'<div class="empty">Nothing to show yet.</div>';const R=80,C=2*Math.PI*R;let off=0;
  const sl=rows.map(r=>{const len=r.v/tot*C,g=rows.length>1?Math.min(3,len*.3):0,x=`<circle class="sl" cx="110" cy="110" r="${R}" fill="none" stroke="${r.c}" stroke-width="26" stroke-dasharray="${Math.max(0,len-g)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 110 110)"><title>${esc(r.n)}: ${F(r.v)} (${Math.round(r.v/tot*100)}%)</title></circle>`;off+=len;return x}).join('');
@@ -725,7 +725,7 @@ function syApply(k,d){const m=S.sy.m,e=m[k];if(e&&e.u>=d.u)return false;let rec=
 function syListen(){if(syU){syU();syU=null}if(!FB||!fbUser)return;const f=FB.fs;
  syU=f.onSnapshot(f.query(f.collection(FB.db,'users',fbUser.uid,'rec'),f.where('u','>',Math.max(0,(S.sy.last||0)-6e5))),snap=>{let ch=0,mx=S.sy.last||0;
   snap.docChanges().forEach(c=>{if(c.type==='removed')return;const d=c.doc.data();if(d.u>mx)mx=d.u;if(syApply(c.doc.id,d))ch=1});
-  S.sy.last=mx;const first=!S.sy.pulled;S.sy.pulled=1;if(ch){save();refreshAll()}if(first)sySoon()},()=>{})}
+  S.sy.last=mx;const first=!S.sy.pulled;S.sy.pulled=1;if(ch){if(!gSel&&S.sync.codes.length)gSel=S.sync.codes[0].code;save();refreshAll();if(view==='G')renderG();listen()}if(first)sySoon()},()=>{})}
 async function syPush(){if(syBusy||!fbUser||!FB||!S.sy.pulled)return;syScan();const m=S.sy.m,ks=Object.keys(m).filter(k=>m[k].x);if(!ks.length)return;syBusy=1;
  try{const cur=ent(),f=FB.fs;for(let i=0;i<ks.length;i+=400){const b=f.writeBatch(FB.db),part=ks.slice(i,i+400);
   part.forEach(k=>b.set(f.doc(FB.db,'users',fbUser.uid,'rec',k),{k:k[0],u:m[k].u,d:m[k].d,j:m[k].d?'':JSON.stringify(cur[k])}));
